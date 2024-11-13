@@ -1,11 +1,7 @@
 import { JSDOM } from "jsdom"
 import type { ExtractedSection, Header, HTMLCleaner } from "./types"
-import { Readability } from "@mozilla/readability"
-import type { ParseResult } from "mozilla-readability"
-import { cleanWhiteSpaces, preprocessHtml } from "./cleaners"
 import { splitText, type SplitterOptions } from "./splitter"
-import { distance } from "fastest-levenshtein"
-import { getTextFromHtml, uniquifyHeaders } from "./utils"
+import { getTextFromHtml, preprocessHtml, uniquifyHeaders } from "./utils"
 import Showdown from "showdown"
 
 /**

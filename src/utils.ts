@@ -1,9 +1,10 @@
 import { distance } from "fastest-levenshtein"
-import type { Header } from "./types.js"
-import { cleanWhiteSpaces } from "./cleaners.js"
+import type { Header, HTMLCleaner } from "./types"
 import type { ParseResult } from "mozilla-readability"
 import { Readability } from "@mozilla/readability"
 import { JSDOM } from "jsdom"
+import { removeUnnecessaryNodes, removeEmptyElements } from "./cleaners"
+import { tagsToRemove } from "./default-selectors"
 
 export const uniquifyHeaders = (headers: Header[]): Header[] => {
   const uniqueHeaders: Header[] = []
@@ -44,4 +45,35 @@ export const getTextFromHtml = (html: string) => {
   }
 
   return cleanWhiteSpaces(article.textContent)
+}
+
+export const cleanWhiteSpaces = (text: string) =>
+  text.replaceAll(/\n\s*/g, " ").trim()
+
+export const preprocessHtml = async ({
+  html,
+  additionalCleaners,
+  removeSelectors = [],
+}: {
+  html: string
+  additionalCleaners?: HTMLCleaner[]
+  removeSelectors?: string[]
+}) => {
+  const doc = new JSDOM(html)
+
+  const allCleaners = [
+    (doc) => removeUnnecessaryNodes(doc, [...tagsToRemove, ...removeSelectors]),
+    removeEmptyElements,
+    ...(additionalCleaners ? additionalCleaners : []),
+  ]
+
+  let cleanedDoc = doc
+
+  for (const cleaner of allCleaners) {
+    const newCleanedDoc = await cleaner(cleanedDoc)
+
+    cleanedDoc = newCleanedDoc
+  }
+
+  return cleanedDoc
 }

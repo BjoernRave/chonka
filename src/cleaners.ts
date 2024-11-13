@@ -1,37 +1,4 @@
 import { JSDOM } from "jsdom"
-import type { HTMLCleaner } from "./types"
-import { tagsToRemove } from "./default-selectors"
-
-export const cleanWhiteSpaces = (text: string) =>
-  text.replaceAll(/\n\s*/g, " ").trim()
-
-export const preprocessHtml = async ({
-  html,
-  additionalCleaners,
-  removeSelectors = [],
-}: {
-  html: string
-  additionalCleaners?: HTMLCleaner[]
-  removeSelectors?: string[]
-}) => {
-  const doc = new JSDOM(html)
-
-  const allCleaners = [
-    (doc) => removeUnnecessaryNodes(doc, [...tagsToRemove, ...removeSelectors]),
-    removeEmptyElements,
-    ...(additionalCleaners ? additionalCleaners : []),
-  ]
-
-  let cleanedDoc = doc
-
-  for (const cleaner of allCleaners) {
-    const newCleanedDoc = await cleaner(cleanedDoc)
-
-    cleanedDoc = newCleanedDoc
-  }
-
-  return cleanedDoc
-}
 
 export const removeUnnecessaryNodes = (doc: JSDOM, selectors: string[]) => {
   for (const tagToRemove of selectors) {
