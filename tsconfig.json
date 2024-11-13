@@ -1,0 +1,19 @@
+{
+  // see https://www.typescriptlang.org/tsconfig to better understand tsconfigs
+  "extends": "@tsconfig/create-react-app/tsconfig.json",
+  "compilerOptions": {
+    "strict": false,
+    "jsx": "react-jsx",
+    "resolveJsonModule": true,
+    "outDir": "dist",
+    "declaration": true,
+    "noEmit": false,
+    "module": "commonjs",
+    "target": "es6",
+    "moduleResolution": "node",
+  },
+  "include": [
+    "src",
+    "node_modules/react-hook-form"
+  ]
+}
