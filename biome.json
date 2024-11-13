@@ -14,5 +14,12 @@
     "formatWithErrors": true,
 
     "indentStyle": "space"
+  },
+  "linter": {
+    "rules": {
+      "suspicious": {
+        "noExplicitAny": "off"
+      }
+    }
   }
 }

@@ -5,6 +5,14 @@ export interface Header {
   text: string
 }
 
+export interface Chunk {
+  metadata: {
+    headers: string
+    [key: string]: string
+  }
+  content: string
+}
+
 export interface ExtractedSection {
   headers: Header[]
   content: string

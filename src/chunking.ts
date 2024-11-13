@@ -1,27 +1,31 @@
 import { JSDOM } from "jsdom"
-import type { ExtractedSection, Header, HTMLCleaner } from "./types"
+import type { Chunk, ExtractedSection, Header, HTMLCleaner } from "./types"
 import { splitText, type SplitterOptions } from "./splitter"
 import { getTextFromHtml, preprocessHtml, uniquifyHeaders } from "./utils"
 import Showdown from "showdown"
 
 /**
- * Preprocesses the HTML content by applying additional cleaners and extracting structured content.
- * @param html - The HTML content to be processed.
- * @param htmlCleaners - An array of HTML cleaners to be applied to the HTML content.
- * @param removeSelectors - An array of selectors to be removed from the HTML content.
- * @param options - An object containing options for the splitter.
- * @returns An object containing the processed HTML
+ * Preprocesses HTML content and converts it into chunks with metadata.
+ * @param {Object} params - The parameters for converting HTML to chunks
+ * @param {string} params.html - The HTML content to be processed
+ * @param {HTMLCleaner[]} [params.htmlCleaners=[]] - Array of HTML cleaners to apply to the content
+ * @param {string[]} [params.removeSelectors=[]] - CSS selectors for elements to remove from the HTML
+ * @param {SplitterOptions} [params.options] - Configuration options for text splitting
+ * @param {Record<string, string>} [params.metadata={}] - Additional metadata to attach to chunks
+ * @returns {Promise<{title: string, chunks: Chunk[]}>} Object containing document title and processed chunks
  */
 export const convertHTMLToChunks = async ({
   html,
   htmlCleaners = [],
   removeSelectors = [],
   options,
+  metadata = {},
 }: {
   html: string
   htmlCleaners?: HTMLCleaner[]
   removeSelectors?: string[]
   options?: SplitterOptions
+  metadata?: Record<string, string>
 }) => {
   const processedHtml = await preprocessHtml({
     html: html,
@@ -33,7 +37,7 @@ export const convertHTMLToChunks = async ({
 
   const extractedSections = extractStructuredContent(processedHtml.serialize())
 
-  const chunks = await chunkSections(extractedSections, options)
+  const chunks = await chunkSections(extractedSections, options, metadata)
 
   return {
     title: documentTitle,
@@ -43,9 +47,10 @@ export const convertHTMLToChunks = async ({
 
 /**
  * Converts markdown content into chunks by first converting to HTML and then processing.
- * @param markdown - The markdown content to be converted and chunked.
- * @param options - An object containing options for the splitter.
- * @returns A promise that resolves to an object containing the chunked content with headers.
+ * @param {Object} params - The parameters for converting markdown to chunks
+ * @param {string} params.markdown - The markdown content to be converted
+ * @param {SplitterOptions} [params.options] - Configuration options for text splitting
+ * @returns {Promise<Chunk[]>} Array of processed content chunks with metadata
  */
 export const convertMarkdownToChunks = async ({
   markdown,
@@ -58,13 +63,15 @@ export const convertMarkdownToChunks = async ({
 
   const html = converter.makeHtml(markdown)
 
-  return convertHTMLToChunks({ html, options })
+  const result = await convertHTMLToChunks({ html, options })
+
+  return result.chunks
 }
 
 /**
- * Extracts structured content from an HTML string.
- * @param html - The HTML content from which structured content needs to be extracted.
- * @returns An array of objects representing sections of structured content.
+ * Extracts structured content from HTML by splitting it into sections based on headers.
+ * @param {string} html - The HTML content to process
+ * @returns {ExtractedSection[]} Array of sections containing content and associated headers
  */
 export const extractStructuredContent = (html: string) => {
   const dom = new JSDOM(html)
@@ -100,7 +107,7 @@ export const extractStructuredContent = (html: string) => {
 
     if (header.text.length > 0) {
       currentHeaders.push({
-        type: header.type,
+        type: header.type as any,
         text: header.text,
       })
     }
@@ -125,18 +132,18 @@ export const extractStructuredContent = (html: string) => {
 }
 
 /**
- * This function takes in an array of extracted sections and an optional array of additional headers.
- * It uses a text splitter to divide the content of each section into smaller chunks.
- * The function then filters out chunks with less than 40 characters and returns the filtered chunks.
- *
- * @param sections - An array of objects representing the extracted sections.
- * @returns An array of objects representing the filtered chunks.
+ * Processes extracted sections into chunks and attaches metadata.
+ * @param {ExtractedSection[]} sections - Array of sections to process
+ * @param {SplitterOptions} [options] - Configuration options for text splitting
+ * @param {Record<string, string>} [metadata] - Additional metadata to attach to chunks
+ * @returns {Promise<Chunk[]>} Array of processed chunks with content and metadata
  */
 export const chunkSections = async (
   sections: ExtractedSection[],
   options?: SplitterOptions,
-): Promise<ExtractedSection[]> => {
-  const chunks: ExtractedSection[] = []
+  metadata?: Record<string, string>,
+): Promise<Chunk[]> => {
+  const chunks: Chunk[] = []
 
   for (const section of sections) {
     const uniqueHeaders = uniquifyHeaders(section.headers)
@@ -146,7 +153,13 @@ export const chunkSections = async (
     chunks.push(
       ...splitted.map((chunk) => ({
         content: chunk,
-        headers: uniqueHeaders,
+        metadata: {
+          headers: uniqueHeaders
+            .sort((a, b) => a.type - b.type)
+            .map((h) => h.text)
+            .join(" "),
+          ...metadata,
+        },
       })),
     )
   }
