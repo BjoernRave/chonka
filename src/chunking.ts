@@ -1,8 +1,8 @@
 import { JSDOM } from "jsdom"
-import type { Chunk, ExtractedSection, Header, HTMLCleaner } from "./types"
-import { splitText, type SplitterOptions } from "./splitter"
-import { getTextFromHtml, preprocessHtml, uniquifyHeaders } from "./utils"
 import Showdown from "showdown"
+import { type SplitterOptions, splitText } from "./splitter"
+import type { Chunk, ExtractedSection, HTMLCleaner, Header } from "./types"
+import { getTextFromHtml, preprocessHtml, uniquifyHeaders } from "./utils"
 
 /**
  * Preprocesses HTML content and converts it into chunks with metadata.
@@ -26,7 +26,7 @@ export const convertHTMLToChunks = async ({
   removeSelectors?: string[]
   options?: SplitterOptions
   metadata?: Record<string, string>
-}) => {
+}): Promise<{ title: string; chunks: Chunk[] }> => {
   const processedHtml = await preprocessHtml({
     html: html,
     additionalCleaners: htmlCleaners,
@@ -58,7 +58,7 @@ export const convertMarkdownToChunks = async ({
 }: {
   markdown: string
   options?: SplitterOptions
-}) => {
+}): Promise<Chunk[]> => {
   const converter = new Showdown.Converter()
 
   const html = converter.makeHtml(markdown)
@@ -73,7 +73,7 @@ export const convertMarkdownToChunks = async ({
  * @param {string} html - The HTML content to process
  * @returns {ExtractedSection[]} Array of sections containing content and associated headers
  */
-export const extractStructuredContent = (html: string) => {
+export const extractStructuredContent = (html: string): ExtractedSection[] => {
   const dom = new JSDOM(html)
   const allHeaders = Array.from(
     dom.window.document.querySelectorAll("h1, h2, h3, h4, h5, h6"),
@@ -145,6 +145,7 @@ export const chunkSections = async (
 ): Promise<Chunk[]> => {
   const chunks: Chunk[] = []
 
+  // First, collect all chunks without indices
   for (const section of sections) {
     const uniqueHeaders = uniquifyHeaders(section.headers)
 
@@ -164,9 +165,17 @@ export const chunkSections = async (
     )
   }
 
+  // Filter chunks first
   const filteredChunks = chunks.filter(
     (chunk) => chunk.content.trim().length > 30,
   )
 
-  return filteredChunks
+  // Then assign indices to the filtered chunks
+  return filteredChunks.map((chunk, index) => ({
+    ...chunk,
+    metadata: {
+      ...chunk.metadata,
+      index: String(index),
+    },
+  }))
 }
